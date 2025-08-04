@@ -12,37 +12,39 @@ const useAuthStore = create((set) => ({
   currentUser: null,
   loading: true,
 
-  // Initialize auth state observer
   initAuth: () => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      set({ currentUser: user, loading: false });
-    });
-    return unsubscribe;
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log("🔥 Auth state changed:", user);
+        set({ currentUser: user, loading: false });
+      });
+
+      return unsubscribe; // ✅ always return cleanup
+    } catch (error) {
+      console.error("initAuth error:", error);
+      return () => {}; // ✅ fallback noop
+    }
   },
 
-  // Login user
   login: async (email, password) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     set({ currentUser: userCredential.user });
   },
 
-  // Signup user
   signup: async (name, email, password) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Save user data to Firestore
     await setDoc(doc(db, "users", user.uid), {
       uid: user.uid,
       name,
       email,
-      createdAt: serverTimestamp(), // better than new Date()
+      createdAt: serverTimestamp(),
     });
 
     set({ currentUser: user });
   },
 
-  // Logout user
   logout: async () => {
     await signOut(auth);
     set({ currentUser: null });

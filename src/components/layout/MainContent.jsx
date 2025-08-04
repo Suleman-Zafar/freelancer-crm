@@ -1,3 +1,4 @@
+// MainContent.jsx
 import React, { useState, useEffect } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -105,7 +106,6 @@ const isStatusField = (key) => key.toLowerCase() === "status";
 const isEmailField = (key) => key.toLowerCase() === "email";
 const isAmountField = (key) => key.toLowerCase() === "amount" || key.toLowerCase() === "budget";
 
-// ---------- Render Field ----------
 const renderInputField = (value, key, onChange, collectionName) => {
   if (isDateField(key)) {
     return (
@@ -169,7 +169,6 @@ const renderInputField = (value, key, onChange, collectionName) => {
   );
 };
 
-// ---------- Main Component ----------
 const MainContent = ({
   title = "Clients",
   headers = [],
@@ -184,7 +183,10 @@ const MainContent = ({
   const [search, setSearch] = useState("");
 
   const useStore = getStoreByCollection(collectionName);
-  const { setItems } = useStore();
+  const setItems = useStore((state) => state.setItems);
+
+  // Ensure `data` is an array
+  const safeData = Array.isArray(data) ? data : [];
 
   const handleChange = (e, key) => {
     setFormData({ ...formData, [key]: e.target.value });
@@ -197,13 +199,19 @@ const MainContent = ({
   const addRow = async () => {
     const colRef = collection(db, collectionName);
     const docRef = await addDoc(colRef, formData);
-    setItems((prev) => [...prev, { id: docRef.id, ...formData }]);
+    if (typeof setItems === "function") {
+      setItems((prev) => [...prev, { id: docRef.id, ...formData }]);
+    } else {
+      console.error("setItems is not a function");
+    }
     setFormData(getInitialFormData(collectionName));
   };
 
   const deleteRow = async (id) => {
     await deleteDoc(doc(db, collectionName, id));
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    if (typeof setItems === "function") {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    }
   };
 
   const startEditing = (item) => {
@@ -219,11 +227,13 @@ const MainContent = ({
   const saveEdit = async () => {
     const docRef = doc(db, collectionName, editingId);
     await updateDoc(docRef, editedData);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === editingId ? { ...editedData, id: editingId } : item
-      )
-    );
+    if (typeof setItems === "function") {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editingId ? { ...editedData, id: editingId } : item
+        )
+      );
+    }
     cancelEditing();
   };
 
@@ -233,7 +243,9 @@ const MainContent = ({
         id: doc.id,
         ...doc.data(),
       }));
-      setItems(liveData);
+      if (typeof setItems === "function") {
+        setItems(liveData);
+      }
     });
 
     return () => unsubscribe();
@@ -241,7 +253,7 @@ const MainContent = ({
 
   const dataHeaders = headers.filter((h) => h.key !== "actions");
 
-  const sortedFilteredData = [...data]
+  const sortedFilteredData = [...safeData]
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(search.toLowerCase())

@@ -7,15 +7,25 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  query,
+  where,
 } from "firebase/firestore";
+import useAuthStore from "./authStore";
 
 const useInvoiceStore = create((set) => ({
   invoices: [],
 
-  // 🔄 Real-time Firestore sync
   fetchInvoices: () => {
-    const unsubscribe = onSnapshot(
+    const { currentUser } = useAuthStore.getState();
+    if (!currentUser) return;
+
+    const q = query(
       collection(db, "invoices"),
+      where("userId", "==", currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
       (snapshot) => {
         const invoices = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -28,32 +38,26 @@ const useInvoiceStore = create((set) => ({
       }
     );
 
-    return unsubscribe; // Call this to stop listening
+    return unsubscribe;
   },
 
   addInvoice: async (invoice) => {
-    try {
-      await addDoc(collection(db, "invoices"), invoice);
-    } catch (error) {
-      console.error("Error adding invoice:", error);
-    }
+    const { currentUser } = useAuthStore.getState();
+    if (!currentUser) return;
+
+    await addDoc(collection(db, "invoices"), {
+      ...invoice,
+      userId: currentUser.uid,
+    });
   },
 
   updateInvoice: async (updatedInvoice) => {
-    try {
-      const docRef = doc(db, "invoices", updatedInvoice.id);
-      await updateDoc(docRef, updatedInvoice);
-    } catch (error) {
-      console.error("Error updating invoice:", error);
-    }
+    const docRef = doc(db, "invoices", updatedInvoice.id);
+    await updateDoc(docRef, updatedInvoice);
   },
 
   deleteInvoice: async (id) => {
-    try {
-      await deleteDoc(doc(db, "invoices", id));
-    } catch (error) {
-      console.error("Error deleting invoice:", error);
-    }
+    await deleteDoc(doc(db, "invoices", id));
   },
 }));
 

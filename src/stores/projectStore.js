@@ -7,18 +7,28 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
+import useAuthStore from "./authStore";
 
 const useProjectStore = create((set) => ({
   projects: [],
   loading: false,
 
-  // Real-time fetch with Firestore listener
   fetchProjects: () => {
     set({ loading: true });
 
-    const unsubscribe = onSnapshot(
+    const { currentUser } = useAuthStore.getState();
+    if (!currentUser) return;
+
+    const q = query(
       collection(db, "projects"),
+      where("userId", "==", currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
       (snapshot) => {
         const projects = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -32,19 +42,23 @@ const useProjectStore = create((set) => ({
       }
     );
 
-    return unsubscribe; // For cleanup
+    return unsubscribe;
   },
 
-  // Add a new project
   addProject: async (project) => {
+    const { currentUser } = useAuthStore.getState();
+    if (!currentUser) return;
+
     try {
-      await addDoc(collection(db, "projects"), project);
+      await addDoc(collection(db, "projects"), {
+        ...project,
+        userId: currentUser.uid,
+      });
     } catch (error) {
       console.error("Error adding project:", error);
     }
   },
 
-  // Update an existing project
   updateProject: async (updatedProject) => {
     try {
       const docRef = doc(db, "projects", updatedProject.id);
@@ -54,7 +68,6 @@ const useProjectStore = create((set) => ({
     }
   },
 
-  // Delete a project
   deleteProject: async (id) => {
     try {
       await deleteDoc(doc(db, "projects", id));
@@ -63,7 +76,6 @@ const useProjectStore = create((set) => ({
     }
   },
 
-  // Useful if syncing manually from onSnapshot in another place
   setProjects: (projects) => set({ projects }),
 }));
 

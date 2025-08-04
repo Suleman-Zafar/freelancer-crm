@@ -1,22 +1,37 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import MainContent from "../components/layout/MainContent";
 import { Edit, Trash2, Save } from "lucide-react";
 import { Button } from "../components/ui/button";
 import useInvoiceStore from "../stores/invoiceStore";
+import useAuthStore from "../stores/authStore";
 
 const STATUS_OPTIONS = ["Paid", "Unpaid", "Pending", "Overdue"];
 
 const Invoices = () => {
+  const initAuth = useAuthStore((state) => state.initAuth);
+  const loading = useAuthStore((state) => state.loading);
+  const currentUser = useAuthStore((state) => state.currentUser);
+
   const { invoices, fetchInvoices, deleteInvoice, updateInvoice } = useInvoiceStore();
-  const [editRowId, setEditRowId] = useState(null);
-  const [editableInvoice, setEditableInvoice] = useState({});
+  const [editRowId, setEditRowId] = React.useState(null);
+  const [editableInvoice, setEditableInvoice] = React.useState({});
 
   useEffect(() => {
-    const unsubscribe = fetchInvoices(); // Real-time listener
-    return () => unsubscribe();
-  }, []);
+    const unsubscribeAuth = initAuth?.();
+    return () => {
+      if (typeof unsubscribeAuth === "function") unsubscribeAuth();
+    };
+  }, [initAuth]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsubscribe = fetchInvoices(); 
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [currentUser]);
 
   const startEditing = (invoice) => {
     setEditRowId(invoice.id);
@@ -28,7 +43,6 @@ const Invoices = () => {
       alert("Please fill all fields correctly.");
       return;
     }
-
     await updateInvoice(editableInvoice);
     setEditRowId(null);
     setEditableInvoice({});
@@ -126,6 +140,9 @@ const Invoices = () => {
         ),
     },
   ];
+
+  if (loading) return <div>Loading authentication...</div>;
+  if (!currentUser) return <div>Please log in</div>;
 
   return (
     <div>

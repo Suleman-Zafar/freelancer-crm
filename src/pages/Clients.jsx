@@ -5,14 +5,28 @@ import { Edit, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import Footer from '../components/layout/Footer';
 import useClientStore from '../stores/clientStore';
+import useAuthStore from '../stores/authStore';
 
 const Clients = () => {
+  const initAuth = useAuthStore((state) => state.initAuth);
+  const loading = useAuthStore((state) => state.loading);
+  const currentUser = useAuthStore((state) => state.currentUser);
   const { clients, fetchClients, deleteClient } = useClientStore();
 
   useEffect(() => {
+    const unsubscribeAuth = initAuth?.();
+    return () => {
+      if (typeof unsubscribeAuth === "function") unsubscribeAuth();
+    };
+  }, [initAuth]);
+
+  useEffect(() => {
+    if (!currentUser) return;
     const unsubscribe = fetchClients(); 
-    return () => unsubscribe(); 
-  }, []);
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [currentUser]);
 
   const headers = [
     { label: "Name", key: "name" },
@@ -42,15 +56,13 @@ const Clients = () => {
     },
   ];
 
+  if (loading) return <div>Loading authentication...</div>;
+  if (!currentUser) return <div>Please log in</div>;
+
   return (
     <div>
       <Navbar />
-      <MainContent
-        title="Clients"
-        headers={headers}
-        data={clients}
-        collectionName="clients"
-      />
+      <MainContent title="Clients" headers={headers} data={clients} collectionName="clients" />
       <Footer />
     </div>
   );
